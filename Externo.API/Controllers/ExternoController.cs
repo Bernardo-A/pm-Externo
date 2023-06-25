@@ -32,7 +32,7 @@ public class ExternoController : ControllerBase
 
     [HttpPost]
     [Route("/filaCobranca")]
-    public IActionResult AdicionarCobrancaNaFila([FromBody] CobrancaNova cobranca)
+    public IActionResult AdicionarCobrancaNaFila([FromBody] CobrancaNovaViewModel cobranca)
     {
 
         _logger.LogInformation("Adicionando na fila de cobranças");
@@ -43,4 +43,20 @@ public class ExternoController : ControllerBase
 
     }
 
+    [HttpPost]
+    [Route("/cobranca")]
+    public IActionResult RealizarCobranca([FromBody] CobrancaNovaViewModel cobranca)
+    {
+        _logger.LogInformation("Realizando a cobrança...");
+
+        var cartao = _cobrancaService.GetCartao(cobranca.Ciclista);
+        //Todo encontrar api pra validar cartão;
+        if (cartao.Numero != null && _cobrancaService.ValidateCreditCardNumber(cartao.Numero)) {
+            var result = _cobrancaService.RegistrarCobranca(cobranca, cartao);
+            return Ok(result);
+        }
+
+        return BadRequest();
+
+    }
 }
