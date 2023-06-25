@@ -1,4 +1,5 @@
 using AutoMapper;
+using Externo.API.Services;
 using Externo.API.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,22 +10,37 @@ namespace Externo.API.Controllers;
 public class ExternoController : ControllerBase
 {
     private readonly ILogger<ExternoController> _logger;
-    private readonly IMapper _mapper;
+    private readonly ICobrancaService _cobrancaService;
 
-    public ExternoController(ILogger<ExternoController> logger, IMapper mapper)
+    public ExternoController(ILogger<ExternoController> logger, ICobrancaService cobrancaService)
     {
-        _mapper = mapper;
         _logger = logger;
+        _cobrancaService = cobrancaService;
     }
 
+    //[HttpPost]
+    //[Route("/enviarEmail")]
+    //public IActionResult EnviarEmail([FromBody] EmailInsertViewModel email) {
+
+    //    _logger.LogInformation("Enviando Email...");
+
+    //    var result = Map<EmailViewModel>(email);
+    //    return Ok(result);
+    //}
+
+
+
     [HttpPost]
-    [Route("/enviarEmail")]
-    public IActionResult EnviarEmail([FromBody] EmailInsertViewModel email) {
+    [Route("/filaCobranca")]
+    public IActionResult AdicionarCobrancaNaFila([FromBody] CobrancaNova cobranca)
+    {
 
-        _logger.LogInformation("Enviando Email...");
+        _logger.LogInformation("Adicionando na fila de cobranças");
 
-        var result = _mapper.Map<EmailViewModel>(email);
+        var result = _cobrancaService.AdicionarCobrancaNaLista(cobranca);
+
         return Ok(result);
 
     }
+
 }
