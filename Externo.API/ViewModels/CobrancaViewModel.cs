@@ -6,8 +6,8 @@ namespace Externo.API.ViewModels
         public string? Status { get; set; }
         public string? HoraSolicitacao { get; set; }
         public string? HoraFinalizacao { get; set; }
-        public decimal? Valor { get; set; }
-        public int? Ciclista { get; set; }
+        public decimal Valor { get; set; }
+        public int Ciclista { get; set; }
         public CartaoViewModel? Cartao { get; set; }
     }
     public class CobrancaNovaViewModel
