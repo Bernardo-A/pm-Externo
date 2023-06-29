@@ -123,12 +123,12 @@ public class ExternoController : ControllerBase
             if (cartao.Numero != null && _cobrancaService.ValidateCreditCardNumber(cartao.Numero))
             {
                 _cobrancaService.RealizarCobrancaAsync(cartao, cobranca.Valor);
-                return Ok();
+                return Ok(cobranca);
             }
 
         }
 
-        return ValidationProblem();
+        return ValidationProblem(;
     }
 
     

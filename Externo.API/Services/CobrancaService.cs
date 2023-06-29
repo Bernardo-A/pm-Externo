@@ -153,7 +153,7 @@ namespace Externo.API.Services
         public CartaoViewModel GetCartao(int ciclistaId) {
             return new CartaoViewModel(){
                 NomeTitular = "aroldo",
-                Numero = "22445818436",
+                Numero = "5371399776148088",
                 Validade = "2023-06-25",
                 CVV = "9905"
             };
