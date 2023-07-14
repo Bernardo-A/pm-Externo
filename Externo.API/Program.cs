@@ -1,6 +1,5 @@
 using AutoMapper;
 using Externo.API.Services;
-
 var builder = WebApplication.CreateBuilder(args);
 
 ConfigureServices(builder.Services);
@@ -34,4 +33,6 @@ app.Run();
 void ConfigureServices(IServiceCollection services)
 {
     services.AddTransient<ICobrancaService, CobrancaService>();
+
+    services.AddHttpClient<ICobrancaService, CobrancaService>();
 }
