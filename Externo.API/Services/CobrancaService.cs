@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Security.Cryptography.X509Certificates;
 using System.Reflection.Metadata;
 using Microsoft.Net.Http.Headers;
+using Externo.API.Controllers;
 
 namespace Externo.API.Services
 {
@@ -35,15 +36,18 @@ namespace Externo.API.Services
 
         private static readonly Dictionary<int, CobrancaViewModel> DicionarioCobrancas = new();
 
+        private readonly ILogger<CobrancaService> _logger;
+
         private readonly HttpClient HttpClient = new();
 
         private const string MerchantId = "49a154cd-b990-4074-a9e9-7f79b70a4435";
         private const string MerchantKey = "YDUXUSDWLLJTZITLUSVOUTIIWBUIWKBLBTVEZSNC";
 
 
-        public CobrancaService(HttpClient httpClient)
+        public CobrancaService(HttpClient httpClient, ILogger<CobrancaService> logger)
         {
             HttpClient = httpClient;
+            _logger = logger;
         }
 
         public CobrancaViewModel AdicionarCobrancaNaFila(CobrancaViewModel cobranca)
@@ -112,8 +116,8 @@ namespace Externo.API.Services
 
                 var pagamentoResponse = JsonConvert.DeserializeObject<PagamentoResponseDTO>(jsonString);
 
-                cobrancaCompleta.Status = (pagamentoResponse.Payment.Status == 4 || pagamentoResponse.Payment.Status == 6) ? "PAGA" : "FALHA";
-                cobrancaCompleta.HoraFinalizacao = pagamentoResponse.Payment.ReceivedDate;
+                cobrancaCompleta.Status = (pagamentoResponse?.Payment?.Status == 4 || pagamentoResponse?.Payment?.Status == 6) ? "PAGA" : "FALHA";
+                cobrancaCompleta.HoraFinalizacao = pagamentoResponse?.Payment?.ReceivedDate;
 
                 if (cobrancaCompleta.Status == "FALHA")
                 {
@@ -126,6 +130,7 @@ namespace Externo.API.Services
                 return cobrancaCompleta;
             }
             catch (Exception ex) {
+                _logger.LogError("Error: ", ex.Message);
                 AdicionarCobrancaNaFila(cobrancaCompleta);
                 return cobrancaCompleta;
             }

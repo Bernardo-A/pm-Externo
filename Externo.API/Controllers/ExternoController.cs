@@ -91,6 +91,7 @@ public class ExternoController : ControllerBase
             return Ok();
         }
         catch(Exception ex) {
+            _logger.LogError("Erro: ", ex.Message);
             return StatusCode(422);
         }
         
