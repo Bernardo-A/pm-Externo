@@ -6,16 +6,24 @@ using System.Text;
 using System.Text.Json;
 using static System.Net.Mime.MediaTypeNames;
 using System.Text.Unicode;
+using Microsoft.AspNetCore.Http.HttpResults;
+using System.Text.Json.Serialization;
+using Newtonsoft.Json;
+using System.Dynamic;
+using System;
+using Microsoft.AspNetCore.Mvc;
+using System.Security.Cryptography.X509Certificates;
+using System.Reflection.Metadata;
+using Microsoft.Net.Http.Headers;
 
 namespace Externo.API.Services
 {
     public interface ICobrancaService
     {
-        public CobrancaViewModel AdicionarCobrancaNaFila(CobrancaNovaViewModel Cobranca);
+        public CobrancaViewModel AdicionarCobrancaNaFila(CobrancaViewModel cobranca);
         public Queue<CobrancaViewModel> BuscarCobrancasDaFila();
-        public CobrancaViewModel RegistrarCobranca(CobrancaNovaViewModel Cobranca, CartaoViewModel cartao);
-        public void RealizarCobrancaAsync(CartaoViewModel cartao, decimal valor);
-        public CartaoViewModel GetCartao(int ciclistaId);
+        public CobrancaViewModel RegistrarCobranca(CobrancaViewModel Cobranca);
+        public Task<CobrancaViewModel> RealizarCobrancaAsync(CobrancaNovaViewModel cobranca);
         public bool ValidateCreditCardNumber(string cardNumber);
         public CobrancaViewModel GetCobranca(int idCobranca);
 
@@ -27,75 +35,106 @@ namespace Externo.API.Services
 
         private static readonly Dictionary<int, CobrancaViewModel> DicionarioCobrancas = new();
 
-        public CobrancaViewModel AdicionarCobrancaNaFila(CobrancaNovaViewModel Cobranca)
+        private readonly HttpClient HttpClient = new();
+
+        private const string MerchantId = "49a154cd-b990-4074-a9e9-7f79b70a4435";
+        private const string MerchantKey = "YDUXUSDWLLJTZITLUSVOUTIIWBUIWKBLBTVEZSNC";
+
+
+        public CobrancaService(HttpClient httpClient)
         {
-            var result = new CobrancaViewModel()
-            {
-                Id = FilaCobrancas.Count,
-                Status = "nova",
-                HoraSolicitacao = "agora",
-                HoraFinalizacao = "depois",
-                Valor = Cobranca.Valor,
-                Ciclista = Cobranca.Ciclista
-            };
-
-            FilaCobrancas.Enqueue(result);
-
-            return result;
+            HttpClient = httpClient;
         }
 
+        public CobrancaViewModel AdicionarCobrancaNaFila(CobrancaViewModel cobranca)
+        {
+            RegistrarCobranca(cobranca);
+            FilaCobrancas.Enqueue(cobranca);
+            return cobranca;
+        }
+
+        public int LibSize() {
+            return DicionarioCobrancas.Count();
+        }
 
         public Queue<CobrancaViewModel> BuscarCobrancasDaFila() { 
             return FilaCobrancas;
         }
 
 
-        public CobrancaViewModel RegistrarCobranca(CobrancaNovaViewModel Cobranca, CartaoViewModel cartao) {
-            if (cartao is null)
-            {
-                throw new ArgumentNullException(nameof(cartao));
-            }
+        public CobrancaViewModel RegistrarCobranca(CobrancaViewModel Cobranca) {
+            DicionarioCobrancas.Add(Cobranca.Id, Cobranca);
 
-            var result = new CobrancaViewModel()
-            {
-                Id = DicionarioCobrancas.Count,
-                Status = "nova",
-                HoraSolicitacao = "agora",
-                HoraFinalizacao = "depois",
-                Valor = Cobranca.Valor,
-                Ciclista = Cobranca.Ciclista,
-                Cartao = cartao
-            };
-
-            DicionarioCobrancas.Add(DicionarioCobrancas.Count, result);
-
-            return result;
+            return Cobranca;
         }
 
-        public async void RealizarCobrancaAsync(CartaoViewModel cartao, decimal valor) {
-            string baseAddress = "https://api-sandbox.getnet.com.br";
-            
+        public async Task<CobrancaViewModel> RealizarCobrancaAsync(CobrancaNovaViewModel cobranca) {
 
-            //conecta na api
-            
-            var response = await ConectarApiCobranca(baseAddress);
-            var responseBody = await response.Content.ReadAsStringAsync();
-            using JsonDocument document = JsonDocument.Parse(responseBody);
-            string accessToken = document.RootElement.GetProperty("access_token").GetString();
+            string baseAddress = "https://apisandbox.cieloecommerce.cielo.com.br";
+            var cobrancaCompleta = new CobrancaViewModel();
 
-            //Tokeniza o cartão
-            response = await TokenizarCartao(cartao.Numero, accessToken, baseAddress);
-            responseBody = await response.Content.ReadAsStringAsync();
-            var responseObject = JsonSerializer.Deserialize<Dictionary<string, string>>(responseBody);
-            string number_token = responseObject["number_token"];
+            cobrancaCompleta.HoraSolicitacao = DateTime.Now;
+            cobrancaCompleta.Id = DicionarioCobrancas.Count;
+            cobrancaCompleta.Valor = cobranca.Valor;
 
-            //Realiza a cobrança
+            try {
+                var cartao = await GetCartao(cobranca.Ciclista);
+
+                var pagamento = new PagamentoDTO()
+                {
+                    MerchantOrderId = DicionarioCobrancas.Count,
+
+                    Payment = new Payment
+                    {
+                        Amount = cobranca.Valor,
+                        CreditCard = new CartaoDTO()
+                        {
+                            CardNumber = cartao.Numero,
+                            Holder = cartao.NomeTitular,
+                            ExpirationDate = cartao.Validade,
+                            SecurityCode = cartao.CVV
+                        }
+                    }
+                };
+
+                var requestBody = JsonConvert.SerializeObject(pagamento);
+
+                HttpClient.DefaultRequestHeaders.Add("MerchantId", MerchantId);
+                HttpClient.DefaultRequestHeaders.Add("MerchantKey", MerchantKey);
+
+                var content = new StringContent(requestBody, Encoding.UTF8, "application/json");
+
+                var response = await HttpClient.PostAsync(baseAddress + "/1/sales", content);
+
+                response.EnsureSuccessStatusCode();
+
+                var jsonString = await response.Content.ReadAsStringAsync();
+
+                var pagamentoResponse = JsonConvert.DeserializeObject<PagamentoResponseDTO>(jsonString);
+
+                cobrancaCompleta.Status = (pagamentoResponse.Payment.Status == 4 || pagamentoResponse.Payment.Status == 6) ? "PAGA" : "FALHA";
+                cobrancaCompleta.HoraFinalizacao = pagamentoResponse.Payment.ReceivedDate;
+
+                if (cobrancaCompleta.Status == "FALHA")
+                {
+                    AdicionarCobrancaNaFila(cobrancaCompleta);
+                }
+                else {
+                    RegistrarCobranca(cobrancaCompleta);
+                }
+
+                return cobrancaCompleta;
+            }
+            catch (Exception ex) {
+                AdicionarCobrancaNaFila(cobrancaCompleta);
+                return cobrancaCompleta;
+            }
 
         }
            
          
 
-        private static async Task<HttpResponseMessage> ConectarApiCobranca( string uri)
+        private static async Task<HttpResponseMessage> ConectarApiCobranca(string uri)
         {
             using HttpClient client = new HttpClient();
             string base64 = "OTM3YzAyNzQtMzgxOC00NmYwLWJiNGUtOWUxN2IyODRkZGVjOjU4N2RkNWM1LWFhMTktNGRkMy1iMDRjLTc1NGFlMzc0NDdhNA==";
@@ -116,52 +155,75 @@ namespace Externo.API.Services
 
             HttpResponseMessage response = await client.SendAsync(request);
 
-            response.EnsureSuccessStatusCode();
+            //response.EnsureSuccessStatusCode();
 
             return response;
             
         }
 
-        private static async Task<HttpResponseMessage> TokenizarCartao(string cartao,string token, string uri) {
-            string sellerId = "aef59803-18a3-4495-a048-274105ad65ec";
-            string costumerId = "14221";
-            using HttpClient client = new HttpClient();
+        //private static async Task<HttpResponseMessage> TokenizarCartao(string cartao,string token, string uri) {
+        //    string sellerId = "aef59803-18a3-4495-a048-274105ad65ec";
+        //    string costumerId = "14221";
+        //    using HttpClient client = new HttpClient();
 
-            var request = new HttpRequestMessage(HttpMethod.Post, uri + "/v1/tokens/card");
+        //    var request = new HttpRequestMessage(HttpMethod.Post, uri + "/v1/tokens/card");
 
-            var requestData = new
-            {
-                card_number = cartao,
-                customer_id = costumerId
-            };
+        //    var requestData = new
+        //    {
+        //        card_number = cartao,
+        //        customer_id = costumerId
+        //    };
 
-            request.Content = JsonContent.Create(requestData);
-            request.Headers.Add("Authorization", "Bearer " + token);
-            request.Headers.Add("seller_id", sellerId);
+        //    request.Content = JsonContent.Create(requestData);
+        //    request.Headers.Add("Authorization", "Bearer " + token);
+        //    request.Headers.Add("seller_id", sellerId);
 
-            HttpResponseMessage response = await client.SendAsync(request);
+        //    HttpResponseMessage response = await client.SendAsync(request);
 
-            var responseBody = await response.Content.ReadAsStringAsync();
-            using JsonDocument document = JsonDocument.Parse(responseBody);
+        //    var responseBody = await response.Content.ReadAsStringAsync();
+        //    using JsonDocument document = JsonDocument.Parse(responseBody);
                
-            return response;
-        }
+        //    return response;
+        //}
             
 
         
 
-        public CartaoViewModel GetCartao(int ciclistaId) {
-            return new CartaoViewModel(){
-                NomeTitular = "aroldo",
-                Numero = "5371399776148088",
-                Validade = "2023-06-25",
-                CVV = "9905"
-            };
+        private async Task<CartaoViewModel> GetCartao(int ciclistaId) {
+            
+            string baseAddress = "https://pmaluguel.herokuapp.com";
+            //var request = new HttpRequestMessage(HttpMethod.Get, baseAddress + "/cartaoDeCredito/" + ciclistaId);
+            //HttpResponseMessage response = await HttpClient.SendAsync(request);
+
+            var response = await HttpClient.GetAsync(baseAddress + "/cartaoDeCredito/" + ciclistaId);
+
+            response.EnsureSuccessStatusCode();
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound) {
+                return new CartaoViewModel();
+            }
+            var responseContent = response.Content;
+            var cartao = await responseContent.ReadFromJsonAsync<CartaoViewModel>();
+
+            if (cartao != null)
+            {
+                return cartao;
+            }
+            else { 
+                return new CartaoViewModel();
+            }
+            
         }
 
         public CobrancaViewModel GetCobranca(int idCobranca)
         {
-            return DicionarioCobrancas.ElementAt(idCobranca).Value;
+
+            if (DicionarioCobrancas.ContainsKey(idCobranca))
+            { 
+                return DicionarioCobrancas.ElementAt(idCobranca).Value;
+            }
+            else {
+                return null;
+            }
         }
 
         public bool ValidateCreditCardNumber(string cardNumber)

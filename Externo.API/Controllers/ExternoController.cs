@@ -31,24 +31,30 @@ public class ExternoController : ControllerBase
         { 
             From = new MailAddress("scbexterno@gmail.com")
         };
-
-        mail.To.Add(email.Email);
-
+        if (email.Email != null)
+        {
+            mail.To.Add(email.Email);
+        }
+        else {
+            return BadRequest();
+        }
 
         mail.Subject = email.Assunto;
         mail.Body = email.Mensagem;
 
-        SmtpClient smtp = new SmtpClient("smtp.gmail.com", 587);
-        
-        smtp.EnableSsl = true;
-        smtp.UseDefaultCredentials = false;
-        smtp.Credentials = new NetworkCredential("scbexterno@gmail.com", "MinhaSenhaDificil123#@!");
+        SmtpClient smtp = new("smtp.gmail.com", 587)
+        {
+            EnableSsl = true,
+            UseDefaultCredentials = false,
+            Credentials = new NetworkCredential("scbexterno@gmail.com", "MinhaSenhaDificil123#@!")
+        };
         try {
             smtp.Send(mail);
         }
-        catch (Exception ex)
+        catch (Exception e)
         {
-            _logger.LogError(ex.Message);
+            _logger.LogError(e.Message);
+            return StatusCode(500);
         }
          
 
@@ -62,32 +68,33 @@ public class ExternoController : ControllerBase
     [Route("/filaCobranca")]
     public IActionResult AdicionarCobrancaNaFila([FromBody] CobrancaNovaViewModel cobranca)
     {
-
         _logger.LogInformation("Adicionando na fila de cobranças");
 
-        var result = _cobrancaService.AdicionarCobrancaNaFila(cobranca);
+        var result = _cobrancaService.AdicionarCobrancaNaFila(new CobrancaViewModel {
+            Id = 11,
+            Status = "Pendente",
+            Valor = cobranca.Valor,
+            Ciclista = cobranca.Ciclista,
+        });
 
         return Ok(result);
-
     }
 
     [HttpPost]
     [Route("/cobranca")]
-    public IActionResult RealizarCobranca([FromBody] CobrancaNovaViewModel cobranca)
+    public async Task<IActionResult> RealizarCobranca([FromBody] CobrancaNovaViewModel cobranca)
     {
         _logger.LogInformation("Realizando a cobrança...");
-
-        var cartao = _cobrancaService.GetCartao(cobranca.Ciclista);
-
-
+        try
+        {
+            var resposta = await _cobrancaService.RealizarCobrancaAsync(cobranca);
+            return Ok();
+        }
+        catch(Exception ex) {
+            return StatusCode(422);
+        }
         
 
-        if (cartao.Numero != null && _cobrancaService.ValidateCreditCardNumber(cartao.Numero)) {
-            _cobrancaService.RealizarCobrancaAsync(cartao, cobranca.Valor);
-            var result = _cobrancaService.RegistrarCobranca(cobranca, cartao);
-            return Ok(result);
-        }
-        return BadRequest();
     }
 
     [HttpGet]
@@ -96,10 +103,10 @@ public class ExternoController : ControllerBase
     {
         _logger.LogInformation("Buscando cobranca");
 
-        if (_cobrancaService.GetCobranca(id) != null)
-        {
+        var cobranca = _cobrancaService.GetCobranca(id);
 
-            var cobranca = _cobrancaService.GetCobranca(id);
+        if(cobranca != null)
+        {
             return Ok(cobranca);
         }
 
@@ -110,25 +117,25 @@ public class ExternoController : ControllerBase
 
     [HttpPost]
     [Route("/processaCobrancasEmFila")]
-    public IActionResult ProcessarCobrancasEmFila()
+    public async Task<IActionResult> ProcessarCobrancasEmFila()
     {
         _logger.LogInformation("Processando fila de cobranças...");
 
         Queue<CobrancaViewModel> filaCobrancas = _cobrancaService.BuscarCobrancasDaFila();
 
-        while (filaCobrancas.Count > 0) {
-            var cobranca = filaCobrancas.Dequeue();
-            var cartao = _cobrancaService.GetCartao(cobranca.Ciclista);
+        //for(int i = 0; i < filaCobrancas.Count; i++ ) {
+        //    var cobranca = filaCobrancas.Dequeue();
+        //    var cartao = await _cobrancaService.GetCartao(cobranca.Ciclista);
 
-            if (cartao.Numero != null && _cobrancaService.ValidateCreditCardNumber(cartao.Numero))
-            {
-                _cobrancaService.RealizarCobrancaAsync(cartao, cobranca.Valor);
-                return Ok(cobranca);
-            }
+        //    if (cartao.Numero != null && _cobrancaService.ValidateCreditCardNumber(cartao.Numero))
+        //    {
+        //        await _cobrancaService.RealizarCobrancaAsync(cartao, cobranca.Valor);
+        //        return Ok(cobranca);
+        //    }
 
-        }
+        //}
 
-        return ValidationProblem(;
+        return ValidationProblem();
     }
 
     
