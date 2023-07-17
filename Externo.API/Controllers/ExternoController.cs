@@ -142,11 +142,11 @@ public class ExternoController : ControllerBase
     
     [HttpPost]
     [Route("/validaCartaoDeCredito")]
-    public IActionResult ValidarCartaoCredito([FromBody] CartaoViewModel cartao)
+    public async Task<IActionResult> ValidarCartaoCreditoAsync([FromBody] CartaoViewModel cartao)
     {
         _logger.LogInformation("Validando cartão...");
 
-        if (cartao.Numero != null && _cobrancaService.ValidateCreditCardNumber(cartao.Numero))
+        if (await _cobrancaService.ValidateCreditCardNumber(cartao))
         {
             return Ok();
         }

@@ -25,7 +25,7 @@ namespace Externo.API.Services
         public Queue<CobrancaViewModel> BuscarCobrancasDaFila();
         public CobrancaViewModel RegistrarCobranca(CobrancaViewModel Cobranca);
         public Task<CobrancaViewModel> RealizarCobrancaAsync(CobrancaNovaViewModel cobranca);
-        public bool ValidateCreditCardNumber(string cardNumber);
+        public Task<bool> ValidateCreditCardNumber(CartaoViewModel cardNumber);
         public CobrancaViewModel GetCobranca(int idCobranca);
 
     }
@@ -42,6 +42,8 @@ namespace Externo.API.Services
 
         private const string MerchantId = "49a154cd-b990-4074-a9e9-7f79b70a4435";
         private const string MerchantKey = "YDUXUSDWLLJTZITLUSVOUTIIWBUIWKBLBTVEZSNC";
+        private const string cieloAddress = "https://apisandbox.cieloecommerce.cielo.com.br";
+        private const string aluguelAddress = "https://pmaluguel.herokuapp.com";
 
 
         public CobrancaService(HttpClient httpClient, ILogger<CobrancaService> logger)
@@ -74,7 +76,6 @@ namespace Externo.API.Services
 
         public async Task<CobrancaViewModel> RealizarCobrancaAsync(CobrancaNovaViewModel cobranca) {
 
-            string baseAddress = "https://apisandbox.cieloecommerce.cielo.com.br";
             var cobrancaCompleta = new CobrancaViewModel();
 
             cobrancaCompleta.HoraSolicitacao = DateTime.Now;
@@ -108,7 +109,7 @@ namespace Externo.API.Services
 
                 var content = new StringContent(requestBody, Encoding.UTF8, "application/json");
 
-                var response = await HttpClient.PostAsync(baseAddress + "/1/sales", content);
+                var response = await HttpClient.PostAsync(cieloAddress + "/1/sales", content);
 
                 response.EnsureSuccessStatusCode();
 
@@ -195,12 +196,7 @@ namespace Externo.API.Services
         
 
         private async Task<CartaoViewModel> GetCartao(int ciclistaId) {
-            
-            string baseAddress = "https://pmaluguel.herokuapp.com";
-            //var request = new HttpRequestMessage(HttpMethod.Get, baseAddress + "/cartaoDeCredito/" + ciclistaId);
-            //HttpResponseMessage response = await HttpClient.SendAsync(request);
-
-            var response = await HttpClient.GetAsync(baseAddress + "/cartaoDeCredito/" + ciclistaId);
+            var response = await HttpClient.GetAsync(aluguelAddress + "/cartaoDeCredito/" + ciclistaId);
 
             response.EnsureSuccessStatusCode();
             if (response.StatusCode == System.Net.HttpStatusCode.NotFound) {
@@ -231,27 +227,31 @@ namespace Externo.API.Services
             }
         }
 
-        public bool ValidateCreditCardNumber(string cardNumber)
+        public async Task<bool> ValidateCreditCardNumber(CartaoViewModel cartao)
         {
-            if (string.IsNullOrWhiteSpace(cardNumber))
-                return false;
-            System.Collections.Generic.IEnumerable<char> rev = cardNumber.Reverse();
-            int sum = 0, i = 0;
-            foreach (char c in rev)
+            var CreditCard = new CartaoDTO()
             {
-                if (c < '0' || c > '9')
-                    return false;
-                int tmp = c - '0';
-                if ((i & 1) != 0)
-                {
-                    tmp <<= 1;
-                    if (tmp > 9)
-                        tmp -= 9;
-                }
-                sum += tmp;
-                i++;
+                CardNumber = cartao.Numero,
+                Holder = cartao.NomeTitular,
+                ExpirationDate = cartao.Validade,
+                SecurityCode = cartao.CVV
+            };
+
+            var requestBody = JsonConvert.SerializeObject(CreditCard);
+
+            HttpClient.DefaultRequestHeaders.Add("MerchantId", MerchantId);
+            HttpClient.DefaultRequestHeaders.Add("MerchantKey", MerchantKey);
+
+            var content = new StringContent(requestBody, Encoding.UTF8, "application/json");
+
+            var response = await HttpClient.PostAsync(cieloAddress + "/1/zeroauth", content);
+
+            if(response.StatusCode != System.Net.HttpStatusCode.OK)
+            {
+                return false;
             }
-            return ((sum % 10) == 0);
+
+            return true;
         }
     }
 }
