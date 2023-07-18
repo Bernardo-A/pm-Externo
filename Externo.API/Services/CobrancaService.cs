@@ -26,7 +26,7 @@ namespace Externo.API.Services
         public CobrancaViewModel RegistrarCobranca(CobrancaViewModel Cobranca);
         public Task<CobrancaViewModel> RealizarCobrancaAsync(CobrancaNovaViewModel cobranca);
         public Task<bool> ValidateCreditCardNumber(CartaoViewModel cardNumber);
-        public CobrancaViewModel GetCobranca(int idCobranca);
+        public CobrancaViewModel? GetCobranca(int idCobranca);
 
     }
 
@@ -133,65 +133,10 @@ namespace Externo.API.Services
             catch (Exception ex) {
                 _logger.LogError("Error: ", ex.Message);
                 AdicionarCobrancaNaFila(cobrancaCompleta);
-                return cobrancaCompleta;
+                throw new Exception();
             }
 
         }
-           
-         
-
-        private static async Task<HttpResponseMessage> ConectarApiCobranca(string uri)
-        {
-            using HttpClient client = new HttpClient();
-            string base64 = "OTM3YzAyNzQtMzgxOC00NmYwLWJiNGUtOWUxN2IyODRkZGVjOjU4N2RkNWM1LWFhMTktNGRkMy1iMDRjLTc1NGFlMzc0NDdhNA==";
-            
-
-            var formData = new Dictionary<string, string>
-                {
-                    { "scope", "oob" },
-                    { "grant_type", "client_credentials" }
-                };
-
-            var content = new FormUrlEncodedContent(formData);
-                
-            var request = new HttpRequestMessage(HttpMethod.Post, uri + "/auth/oauth/v2/token");
-            request.Content = content;
-            request.Headers.Add("Authorization", "Basic " + base64);
-
-
-            HttpResponseMessage response = await client.SendAsync(request);
-
-            //response.EnsureSuccessStatusCode();
-
-            return response;
-            
-        }
-
-        //private static async Task<HttpResponseMessage> TokenizarCartao(string cartao,string token, string uri) {
-        //    string sellerId = "aef59803-18a3-4495-a048-274105ad65ec";
-        //    string costumerId = "14221";
-        //    using HttpClient client = new HttpClient();
-
-        //    var request = new HttpRequestMessage(HttpMethod.Post, uri + "/v1/tokens/card");
-
-        //    var requestData = new
-        //    {
-        //        card_number = cartao,
-        //        customer_id = costumerId
-        //    };
-
-        //    request.Content = JsonContent.Create(requestData);
-        //    request.Headers.Add("Authorization", "Bearer " + token);
-        //    request.Headers.Add("seller_id", sellerId);
-
-        //    HttpResponseMessage response = await client.SendAsync(request);
-
-        //    var responseBody = await response.Content.ReadAsStringAsync();
-        //    using JsonDocument document = JsonDocument.Parse(responseBody);
-               
-        //    return response;
-        //}
-            
 
         
 
@@ -215,7 +160,7 @@ namespace Externo.API.Services
             
         }
 
-        public CobrancaViewModel GetCobranca(int idCobranca)
+        public CobrancaViewModel? GetCobranca(int idCobranca)
         {
 
             if (DicionarioCobrancas.ContainsKey(idCobranca))

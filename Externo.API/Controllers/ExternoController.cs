@@ -122,20 +122,6 @@ public class ExternoController : ControllerBase
     {
         _logger.LogInformation("Processando fila de cobranças...");
 
-        Queue<CobrancaViewModel> filaCobrancas = _cobrancaService.BuscarCobrancasDaFila();
-
-        //for(int i = 0; i < filaCobrancas.Count; i++ ) {
-        //    var cobranca = filaCobrancas.Dequeue();
-        //    var cartao = await _cobrancaService.GetCartao(cobranca.Ciclista);
-
-        //    if (cartao.Numero != null && _cobrancaService.ValidateCreditCardNumber(cartao.Numero))
-        //    {
-        //        await _cobrancaService.RealizarCobrancaAsync(cartao, cobranca.Valor);
-        //        return Ok(cobranca);
-        //    }
-
-        //}
-
         return ValidationProblem();
     }
 
@@ -151,8 +137,5 @@ public class ExternoController : ControllerBase
             return Ok();
         }
         return ValidationProblem();   
-           
     }
-
-
 }
