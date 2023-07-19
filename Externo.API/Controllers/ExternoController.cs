@@ -57,7 +57,6 @@ public class ExternoController : ControllerBase
             return StatusCode(500);
         }
          
-
         var result = email;
         return Ok(result);
     }
@@ -71,8 +70,7 @@ public class ExternoController : ControllerBase
         _logger.LogInformation("Adicionando na fila de cobranças");
 
         var result = _cobrancaService.AdicionarCobrancaNaFila(new CobrancaViewModel {
-            Id = 11,
-            Status = "Pendente",
+            Status = "PENDENTE",
             Valor = cobranca.Valor,
             Ciclista = cobranca.Ciclista,
         });
@@ -87,8 +85,8 @@ public class ExternoController : ControllerBase
         _logger.LogInformation("Realizando a cobrança...");
         try
         {
-            var resposta = await _cobrancaService.RealizarCobrancaAsync(cobranca);
-            return Ok();
+            var resposta = await _cobrancaService.RealizarCobrancaAsync(cobranca.Valor, cobranca.Ciclista);
+            return Ok(resposta);
         }
         catch(Exception ex) {
             _logger.LogError("Erro: ", ex.Message);
@@ -110,7 +108,6 @@ public class ExternoController : ControllerBase
         {
             return Ok(cobranca);
         }
-
         return NotFound();
 
     }
@@ -122,7 +119,13 @@ public class ExternoController : ControllerBase
     {
         _logger.LogInformation("Processando fila de cobranças...");
 
-        return ValidationProblem();
+        var FilaCobrancas = await _cobrancaService.ProcessarFilaCobrancas();
+
+        if (FilaCobrancas.Count != 0) {
+            return Ok(FilaCobrancas);
+        }
+
+        return StatusCode(422);
     }
 
     

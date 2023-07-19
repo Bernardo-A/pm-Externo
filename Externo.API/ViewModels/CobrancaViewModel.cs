@@ -10,7 +10,6 @@ namespace Externo.API.ViewModels
         public DateTime? HoraFinalizacao { get; set; }
         public decimal Valor { get; set; }
         public int Ciclista { get; set; }
-        public CartaoViewModel? Cartao { get; set; }
     }
     public class CobrancaNovaViewModel
     {
@@ -45,7 +44,7 @@ namespace Externo.API.ViewModels
         public decimal? Amount { get; set; }
         public int? Installments { get; set; } = 1;
         public CartaoDTO? CreditCard { get; set; }
-        public int? Status { get; set; }
+        public int? ReturnCode { get; set; }
         public DateTime? ReceivedDate { get; set; }
     }
 

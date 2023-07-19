@@ -24,9 +24,10 @@ namespace Externo.API.Services
         public CobrancaViewModel AdicionarCobrancaNaFila(CobrancaViewModel cobranca);
         public Queue<CobrancaViewModel> BuscarCobrancasDaFila();
         public CobrancaViewModel RegistrarCobranca(CobrancaViewModel Cobranca);
-        public Task<CobrancaViewModel> RealizarCobrancaAsync(CobrancaNovaViewModel cobranca);
+        public Task<CobrancaViewModel> RealizarCobrancaAsync(decimal valor, int ciclistaId);
         public Task<bool> ValidateCreditCardNumber(CartaoViewModel cardNumber);
         public CobrancaViewModel? GetCobranca(int idCobranca);
+        public Task<List<CobrancaViewModel>> ProcessarFilaCobrancas();
 
     }
 
@@ -38,7 +39,8 @@ namespace Externo.API.Services
 
         private readonly ILogger<CobrancaService> _logger;
 
-        private readonly HttpClient HttpClient = new();
+        private readonly HttpClient HttpClient;
+
 
         private const string MerchantId = "49a154cd-b990-4074-a9e9-7f79b70a4435";
         private const string MerchantKey = "YDUXUSDWLLJTZITLUSVOUTIIWBUIWKBLBTVEZSNC";
@@ -52,6 +54,7 @@ namespace Externo.API.Services
             _logger = logger;
         }
 
+
         public CobrancaViewModel AdicionarCobrancaNaFila(CobrancaViewModel cobranca)
         {
             RegistrarCobranca(cobranca);
@@ -59,14 +62,9 @@ namespace Externo.API.Services
             return cobranca;
         }
 
-        public int LibSize() {
-            return DicionarioCobrancas.Count();
-        }
-
         public Queue<CobrancaViewModel> BuscarCobrancasDaFila() { 
             return FilaCobrancas;
         }
-
 
         public CobrancaViewModel RegistrarCobranca(CobrancaViewModel Cobranca) {
             DicionarioCobrancas.Add(Cobranca.Id, Cobranca);
@@ -74,16 +72,17 @@ namespace Externo.API.Services
             return Cobranca;
         }
 
-        public async Task<CobrancaViewModel> RealizarCobrancaAsync(CobrancaNovaViewModel cobranca) {
+        public async Task<CobrancaViewModel> RealizarCobrancaAsync(decimal valor, int ciclistaId) {
 
             var cobrancaCompleta = new CobrancaViewModel();
 
             cobrancaCompleta.HoraSolicitacao = DateTime.Now;
             cobrancaCompleta.Id = DicionarioCobrancas.Count;
-            cobrancaCompleta.Valor = cobranca.Valor;
+            cobrancaCompleta.Valor = valor;
+            cobrancaCompleta.Ciclista = ciclistaId;
 
             try {
-                var cartao = await GetCartao(cobranca.Ciclista);
+                var cartao = await GetCartao(ciclistaId);
 
                 var pagamento = new PagamentoDTO()
                 {
@@ -91,7 +90,7 @@ namespace Externo.API.Services
 
                     Payment = new Payment
                     {
-                        Amount = cobranca.Valor,
+                        Amount = valor,
                         CreditCard = new CartaoDTO()
                         {
                             CardNumber = cartao.Numero,
@@ -117,7 +116,7 @@ namespace Externo.API.Services
 
                 var pagamentoResponse = JsonConvert.DeserializeObject<PagamentoResponseDTO>(jsonString);
 
-                cobrancaCompleta.Status = (pagamentoResponse?.Payment?.Status == 4 || pagamentoResponse?.Payment?.Status == 6) ? "PAGA" : "FALHA";
+                cobrancaCompleta.Status = (pagamentoResponse?.Payment?.ReturnCode == 4 || pagamentoResponse?.Payment?.ReturnCode == 6) ? "PAGA" : "FALHA";
                 cobrancaCompleta.HoraFinalizacao = pagamentoResponse?.Payment?.ReceivedDate;
 
                 if (cobrancaCompleta.Status == "FALHA")
@@ -132,13 +131,12 @@ namespace Externo.API.Services
             }
             catch (Exception ex) {
                 _logger.LogError("Error: ", ex.Message);
+                cobrancaCompleta.Status = "FALHA";
                 AdicionarCobrancaNaFila(cobrancaCompleta);
                 throw new Exception();
             }
 
         }
-
-        
 
         private async Task<CartaoViewModel> GetCartao(int ciclistaId) {
             var response = await HttpClient.GetAsync(aluguelAddress + "/cartaoDeCredito/" + ciclistaId);
@@ -170,6 +168,29 @@ namespace Externo.API.Services
             else {
                 return null;
             }
+        }
+
+
+        public async Task<List<CobrancaViewModel>> ProcessarFilaCobrancas() {
+
+            int tamanho = FilaCobrancas.Count;
+            var lista =  new List<CobrancaViewModel>();
+            
+            for (int i = 0; i < tamanho; i++)
+            {
+                var cobranca = FilaCobrancas.Dequeue();
+               
+                try
+                {
+                    var result = await RealizarCobrancaAsync(cobranca.Valor, cobranca.Ciclista);
+                    lista.Add(result);
+                }
+                catch {
+                    continue;
+                }
+
+            }
+            return lista;
         }
 
         public async Task<bool> ValidateCreditCardNumber(CartaoViewModel cartao)
