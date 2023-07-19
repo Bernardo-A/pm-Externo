@@ -3,8 +3,12 @@ using Externo.API.Services;
 using Externo.API.ViewModels;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
+using PostmarkDotNet;
+using PostmarkDotNet.Model;
 using System.Net;
 using System.Net.Mail;
+using System.Reflection.PortableExecutable;
+using System.Security.Cryptography;
 
 namespace Externo.API.Controllers;
 
@@ -23,42 +27,24 @@ public class ExternoController : ControllerBase
 
     [HttpPost]
     [Route("/enviarEmail")]
-    public IActionResult EnviarEmail([FromBody] EmailInsertViewModel email) {
+    public async Task<IActionResult> EnviarEmail([FromBody] EmailInsertViewModel email) {
 
-        _logger.LogInformation("Enviando Email...");
-
-        MailMessage mail = new()
-        { 
-            From = new MailAddress("scbexterno@gmail.com")
+        var message = new PostmarkMessage()
+        {
+            To = email.Email,
+            From = "bernardo.agrelos@edu.unirio.br",
+            TrackOpens = true,
+            Subject = email.Assunto,
+            TextBody = email.Mensagem,
+            HtmlBody = "<strong>Hello</strong> dear Postmark user.",
         };
-        if (email.Email != null)
-        {
-            mail.To.Add(email.Email);
-        }
-        else {
-            return BadRequest();
-        }
 
-        mail.Subject = email.Assunto;
-        mail.Body = email.Mensagem;
+        var client = new PostmarkClient("ac4655e9-9242-4bac-be28-a8d9568f9191");
+        var sendResult = await client.SendMessageAsync(message);
 
-        SmtpClient smtp = new("smtp.gmail.com", 587)
-        {
-            EnableSsl = true,
-            UseDefaultCredentials = false,
-            Credentials = new NetworkCredential("scbexterno@gmail.com", "MinhaSenhaDificil123#@!")
-        };
-        try {
-            smtp.Send(mail);
-        }
-        catch (Exception e)
-        {
-            _logger.LogError(e.Message);
-            return StatusCode(500);
-        }
-         
-        var result = email;
-        return Ok(result);
+        if (sendResult.Status == PostmarkStatus.Success) { return Ok(); }
+
+        else return BadRequest();
     }
 
 
