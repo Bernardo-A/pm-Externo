@@ -46,5 +46,5 @@ jobs:
           .\.sonar\scanner\dotnet-sonarscanner begin /k:"Bernardo-A_pm-Externo" /o:"bernardo-a" /d:sonar.login="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.cs.opencover.reportsPaths=coverage.xml
           dotnet build --no-incremental
           dotnet tool install --global coverlet.console
-          coverlet .\Externo.Testes\bin\Debug\net7.0\Externo.Testes.dll --target "dotnet" --targetargs "test --no-build" -f=opencover -o="coverage.xml"
+          coverlet .\Externo.Tests\bin\Debug\net7.0\Externo.Tests.dll --target "dotnet" --targetargs "test --no-build" -f=opencover -o="coverage.xml"
           .\.sonar\scanner\dotnet-sonarscanner end /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
