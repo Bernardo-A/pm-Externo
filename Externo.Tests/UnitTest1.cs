@@ -6,7 +6,7 @@ using Externo.API.Services;
 using Externo.API.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Externo.Testes
+namespace Externo.Tests
 {
     public class UnitTest1
     {
@@ -46,11 +46,6 @@ namespace Externo.Testes
             var sut = new CobrancaService(_client, _loggerService);
 
             var result = sut.GetCartao(0);
-
-
-
-
-
         }
 
         

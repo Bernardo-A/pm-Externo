@@ -5,7 +5,7 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Externo.API", "Externo.API\Externo.API.csproj", "{A3A448CB-555C-4045-905A-3C96E7EAF832}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Externo.Testes", "Externo.Testes\Externo.Testes.csproj", "{C5469E40-1948-4340-AE54-9B57367DFE53}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Externo.Tests", "Externo.Tests\Externo.Tests.csproj", "{C5469E40-1948-4340-AE54-9B57367DFE53}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
