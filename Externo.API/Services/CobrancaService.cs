@@ -138,7 +138,7 @@ namespace Externo.API.Services
 
         }
 
-        private async Task<CartaoViewModel> GetCartao(int ciclistaId) {
+        public async Task<CartaoViewModel> GetCartao(int ciclistaId) {
             var response = await HttpClient.GetAsync(aluguelAddress + "/cartaoDeCredito/" + ciclistaId);
 
             response.EnsureSuccessStatusCode();

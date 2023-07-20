@@ -28,11 +28,6 @@ namespace Externo.Testes
 
             result.StatusCode.Should().Be(200);
 
-
-
-
-
-
         }
 
         [Fact]
@@ -43,6 +38,18 @@ namespace Externo.Testes
             var result = sut.AdicionarCobrancaNaFila(new CobrancaViewModel());
 
             Assert.Equal(typeof(CobrancaViewModel), result.GetType());
+
+        }
+
+        public void TesteIntegracaoGetCartaoAluguel() {
+
+            var sut = new CobrancaService(_client, _loggerService);
+
+            var result = sut.GetCartao(0);
+
+
+
+
 
         }
 
