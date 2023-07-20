@@ -2,6 +2,7 @@
 using Externo.API.Services;
 using Externo.API.ViewModels;
 using Microsoft.Extensions.Logging;
+using Moq;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -15,11 +16,11 @@ namespace Externo.Tests
 {
     public class TestesDeIntegracao
     {
-        private readonly ILogger<ExternoController> _logger;
-        private readonly ILogger<CobrancaService> _loggerService;
-        private readonly HttpClient _client;
 
-        
+        private readonly Mock<ILogger<CobrancaService>> _loggerService = new();
+        private readonly HttpClient _client = new();
+
+
         private const string MerchantId = "49a154cd-b990-4074-a9e9-7f79b70a4435";
         private const string MerchantKey = "YDUXUSDWLLJTZITLUSVOUTIIWBUIWKBLBTVEZSNC";
         private const string cieloAddress = "https://apisandbox.cieloecommerce.cielo.com.br";
@@ -27,9 +28,7 @@ namespace Externo.Tests
         [Fact]
         public void TesteIntegracaoGetCartaoAluguel()
         {
-            //adicionar ciclista para encontrar o cartão dele.
-
-            var sut = new CobrancaService(_client, _loggerService);
+            var sut = new CobrancaService(_client, _loggerService.Object);
 
             var result = sut.GetCartao(0);
 
@@ -38,7 +37,8 @@ namespace Externo.Tests
 
 
         [Fact]
-        public async void RealizaPagamentoRetornaStatus200() {
+        public async void RealizaPagamentoRetornaStatusSucesso()
+        {
 
             var pagamento = new PagamentoDTO()
             {
@@ -70,12 +70,28 @@ namespace Externo.Tests
         }
 
 
+        [Fact]
+        public async void ValidateCartaoRetornaTrueCartaoCom13Digitos()
+        {
+            var CreditCard = new CartaoDTO()
+            {
+                CardNumber = "10102222212212",
+                Holder = "Titular Cartao",
+                ExpirationDate = "08/2024",
+                SecurityCode = "111"
+            };
 
+            var requestBody = JsonConvert.SerializeObject(CreditCard);
 
+            _client.DefaultRequestHeaders.Add("MerchantId", MerchantId);
+            _client.DefaultRequestHeaders.Add("MerchantKey", MerchantKey);
+
+            var content = new StringContent(requestBody, Encoding.UTF8, "application/json");
+
+            var response = await _client.PostAsync(cieloAddress + "/1/zeroauth", content);
+
+            Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+        }
 
     }
-
-   
-
-
 }

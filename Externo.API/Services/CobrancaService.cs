@@ -22,7 +22,6 @@ namespace Externo.API.Services
     public interface ICobrancaService
     {
         public CobrancaViewModel AdicionarCobrancaNaFila(CobrancaViewModel cobranca);
-        public Queue<CobrancaViewModel> BuscarCobrancasDaFila();
         public CobrancaViewModel RegistrarCobranca(CobrancaViewModel Cobranca);
         public Task<CobrancaViewModel> RealizarCobrancaAsync(decimal valor, int ciclistaId);
         public Task<bool> ValidateCreditCardNumber(CartaoViewModel cardNumber);
@@ -62,10 +61,6 @@ namespace Externo.API.Services
             return cobranca;
         }
 
-        public Queue<CobrancaViewModel> BuscarCobrancasDaFila() { 
-            return FilaCobrancas;
-        }
-
         public CobrancaViewModel RegistrarCobranca(CobrancaViewModel Cobranca) {
             DicionarioCobrancas.Add(Cobranca.Id, Cobranca);
 
@@ -74,12 +69,13 @@ namespace Externo.API.Services
 
         public async Task<CobrancaViewModel> RealizarCobrancaAsync(decimal valor, int ciclistaId) {
 
-            var cobrancaCompleta = new CobrancaViewModel();
-
-            cobrancaCompleta.HoraSolicitacao = DateTime.Now;
-            cobrancaCompleta.Id = DicionarioCobrancas.Count;
-            cobrancaCompleta.Valor = valor;
-            cobrancaCompleta.Ciclista = ciclistaId;
+            var cobrancaCompleta = new CobrancaViewModel
+            {
+                HoraSolicitacao = DateTime.Now,
+                Id = DicionarioCobrancas.Count,
+                Valor = valor,
+                Ciclista = ciclistaId
+            };
 
             try {
                 var cartao = await GetCartao(ciclistaId);
