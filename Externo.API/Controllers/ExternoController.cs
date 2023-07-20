@@ -3,8 +3,12 @@ using Externo.API.Services;
 using Externo.API.ViewModels;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
+using PostmarkDotNet;
+using PostmarkDotNet.Model;
 using System.Net;
 using System.Net.Mail;
+using System.Reflection.PortableExecutable;
+using System.Security.Cryptography;
 
 namespace Externo.API.Controllers;
 
@@ -23,37 +27,24 @@ public class ExternoController : ControllerBase
 
     [HttpPost]
     [Route("/enviarEmail")]
-    public IActionResult EnviarEmail([FromBody] EmailInsertViewModel email) {
+    public async Task<IActionResult> EnviarEmail([FromBody] EmailInsertViewModel email) {
 
-        _logger.LogInformation("Enviando Email...");
-
-        MailMessage mail = new()
-        { 
-            From = new MailAddress("scbexterno@gmail.com")
+        var message = new PostmarkMessage()
+        {
+            To = email.Email,
+            From = "bernardo.agrelos@edu.unirio.br",
+            TrackOpens = true,
+            Subject = email.Assunto,
+            TextBody = email.Mensagem,
+            HtmlBody = "",
         };
 
-        mail.To.Add(email.Email);
+        var client = new PostmarkClient("ac4655e9-9242-4bac-be28-a8d9568f9191");
+        var sendResult = await client.SendMessageAsync(message);
 
+        if (sendResult.Status == PostmarkStatus.Success) { return Ok(); }
 
-        mail.Subject = email.Assunto;
-        mail.Body = email.Mensagem;
-
-        SmtpClient smtp = new SmtpClient("smtp.gmail.com", 587);
-        
-        smtp.EnableSsl = true;
-        smtp.UseDefaultCredentials = false;
-        smtp.Credentials = new NetworkCredential("scbexterno@gmail.com", "MinhaSenhaDificil123#@!");
-        try {
-            smtp.Send(mail);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex.Message);
-        }
-         
-
-        var result = email;
-        return Ok(result);
+        else return BadRequest();
     }
 
 
@@ -62,32 +53,33 @@ public class ExternoController : ControllerBase
     [Route("/filaCobranca")]
     public IActionResult AdicionarCobrancaNaFila([FromBody] CobrancaNovaViewModel cobranca)
     {
-
         _logger.LogInformation("Adicionando na fila de cobranças");
 
-        var result = _cobrancaService.AdicionarCobrancaNaFila(cobranca);
+        var result = _cobrancaService.AdicionarCobrancaNaFila(new CobrancaViewModel {
+            Status = "PENDENTE",
+            Valor = cobranca.Valor,
+            Ciclista = cobranca.Ciclista,
+        });
 
         return Ok(result);
-
     }
 
     [HttpPost]
     [Route("/cobranca")]
-    public IActionResult RealizarCobranca([FromBody] CobrancaNovaViewModel cobranca)
+    public async Task<IActionResult> RealizarCobranca([FromBody] CobrancaNovaViewModel cobranca)
     {
         _logger.LogInformation("Realizando a cobrança...");
-
-        var cartao = _cobrancaService.GetCartao(cobranca.Ciclista);
-
-
+        try
+        {
+            var resposta = await _cobrancaService.RealizarCobrancaAsync(cobranca.Valor, cobranca.Ciclista);
+            return Ok(resposta);
+        }
+        catch(Exception ex) {
+            _logger.LogError("Erro: ", ex.Message);
+            return StatusCode(422);
+        }
         
 
-        if (cartao.Numero != null && _cobrancaService.ValidateCreditCardNumber(cartao.Numero)) {
-            _cobrancaService.RealizarCobrancaAsync(cartao, cobranca.Valor);
-            var result = _cobrancaService.RegistrarCobranca(cobranca, cartao);
-            return Ok(result);
-        }
-        return BadRequest();
     }
 
     [HttpGet]
@@ -96,13 +88,12 @@ public class ExternoController : ControllerBase
     {
         _logger.LogInformation("Buscando cobranca");
 
-        if (_cobrancaService.GetCobranca(id) != null)
-        {
+        var cobranca = _cobrancaService.GetCobranca(id);
 
-            var cobranca = _cobrancaService.GetCobranca(id);
+        if(cobranca != null)
+        {
             return Ok(cobranca);
         }
-
         return NotFound();
 
     }
@@ -110,41 +101,30 @@ public class ExternoController : ControllerBase
 
     [HttpPost]
     [Route("/processaCobrancasEmFila")]
-    public IActionResult ProcessarCobrancasEmFila()
+    public async Task<IActionResult> ProcessarCobrancasEmFila()
     {
         _logger.LogInformation("Processando fila de cobranças...");
 
-        Queue<CobrancaViewModel> filaCobrancas = _cobrancaService.BuscarCobrancasDaFila();
+        var FilaCobrancas = await _cobrancaService.ProcessarFilaCobrancas();
 
-        while (filaCobrancas.Count > 0) {
-            var cobranca = filaCobrancas.Dequeue();
-            var cartao = _cobrancaService.GetCartao(cobranca.Ciclista);
-
-            if (cartao.Numero != null && _cobrancaService.ValidateCreditCardNumber(cartao.Numero))
-            {
-                _cobrancaService.RealizarCobrancaAsync(cartao, cobranca.Valor);
-                return Ok(cobranca);
-            }
-
+        if (FilaCobrancas.Count != 0) {
+            return Ok(FilaCobrancas);
         }
 
-        return ValidationProblem(;
+        return StatusCode(422);
     }
 
     
     [HttpPost]
     [Route("/validaCartaoDeCredito")]
-    public IActionResult ValidarCartaoCredito([FromBody] CartaoViewModel cartao)
+    public async Task<IActionResult> ValidarCartaoCreditoAsync([FromBody] CartaoViewModel cartao)
     {
         _logger.LogInformation("Validando cartão...");
 
-        if (cartao.Numero != null && _cobrancaService.ValidateCreditCardNumber(cartao.Numero))
+        if (await _cobrancaService.ValidateCreditCardNumber(cartao))
         {
             return Ok();
         }
         return ValidationProblem();   
-           
     }
-
-
 }
