@@ -5,10 +5,11 @@ using Microsoft.Extensions.Logging;
 using Externo.API.Services;
 using Externo.API.ViewModels;
 using Microsoft.AspNetCore.Mvc;
+using Xunit;
 
 namespace Externo.Tests
 {
-    public class UnitTest1
+    public class TestesDeUnidade
     {
         private readonly ILogger<ExternoController> _logger;
         private readonly ILogger<CobrancaService> _loggerService;
@@ -16,7 +17,7 @@ namespace Externo.Tests
 
 
         [Fact]
-        public void Test1()
+        public void AdicionaNaFilaRetornaCobranca()
         {
             var MockCobrancaService = new Mock<CobrancaService>();
 
@@ -31,21 +32,13 @@ namespace Externo.Tests
         }
 
         [Fact]
-        public void Teste2() {
+        public void ServicoAdicionaNaFilaRetornaCobranca() {
 
             var sut = new CobrancaService(_client, _loggerService);
 
             var result = sut.AdicionarCobrancaNaFila(new CobrancaViewModel());
 
             Assert.Equal(typeof(CobrancaViewModel), result.GetType());
-
-        }
-
-        public void TesteIntegracaoGetCartaoAluguel() {
-
-            var sut = new CobrancaService(_client, _loggerService);
-
-            var result = sut.GetCartao(0);
         }
 
         

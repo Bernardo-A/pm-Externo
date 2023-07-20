@@ -36,7 +36,7 @@ public class ExternoController : ControllerBase
             TrackOpens = true,
             Subject = email.Assunto,
             TextBody = email.Mensagem,
-            HtmlBody = "<strong>Hello</strong> dear Postmark user.",
+            HtmlBody = "",
         };
 
         var client = new PostmarkClient("ac4655e9-9242-4bac-be28-a8d9568f9191");

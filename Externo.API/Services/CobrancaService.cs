@@ -183,7 +183,9 @@ namespace Externo.API.Services
                 try
                 {
                     var result = await RealizarCobrancaAsync(cobranca.Valor, cobranca.Ciclista);
-                    lista.Add(result);
+                    if (result.Status == "PAGA") {
+                        lista.Add(result);
+                    } 
                 }
                 catch {
                     continue;
