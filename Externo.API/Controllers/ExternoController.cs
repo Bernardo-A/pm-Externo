@@ -36,7 +36,7 @@ public class ExternoController : ControllerBase
             TrackOpens = true,
             Subject = email.Assunto,
             TextBody = email.Mensagem,
-            HtmlBody = "",
+            HtmlBody = email.Mensagem,
         };
 
         var client = new PostmarkClient("ac4655e9-9242-4bac-be28-a8d9568f9191");
@@ -53,7 +53,7 @@ public class ExternoController : ControllerBase
     [Route("/filaCobranca")]
     public IActionResult AdicionarCobrancaNaFila([FromBody] CobrancaNovaViewModel cobranca)
     {
-        _logger.LogInformation("Adicionando na fila de cobranÁas");
+        _logger.LogInformation("Adicionando na fila de cobran√ßas");
 
         var result = _cobrancaService.AdicionarCobrancaNaFila(new CobrancaViewModel {
             Status = "PENDENTE",
@@ -68,7 +68,7 @@ public class ExternoController : ControllerBase
     [Route("/cobranca")]
     public async Task<IActionResult> RealizarCobranca([FromBody] CobrancaNovaViewModel cobranca)
     {
-        _logger.LogInformation("Realizando a cobranÁa...");
+        _logger.LogInformation("Realizando a cobran√ßa...");
         try
         {
             var resposta = await _cobrancaService.RealizarCobrancaAsync(cobranca.Valor, cobranca.Ciclista);
@@ -103,7 +103,7 @@ public class ExternoController : ControllerBase
     [Route("/processaCobrancasEmFila")]
     public async Task<IActionResult> ProcessarCobrancasEmFila()
     {
-        _logger.LogInformation("Processando fila de cobranÁas...");
+        _logger.LogInformation("Processando fila de cobran√ßas...");
 
         var FilaCobrancas = await _cobrancaService.ProcessarFilaCobrancas();
 
@@ -119,7 +119,7 @@ public class ExternoController : ControllerBase
     [Route("/validaCartaoDeCredito")]
     public async Task<IActionResult> ValidarCartaoCreditoAsync([FromBody] CartaoViewModel cartao)
     {
-        _logger.LogInformation("Validando cart„o...");
+        _logger.LogInformation("Validando cart√£o...");
 
         if (await _cobrancaService.ValidateCreditCardNumber(cartao))
         {
